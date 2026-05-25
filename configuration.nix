@@ -33,12 +33,23 @@
     "split_lock_detect=off"
     "tsc=reliable"
     "clocksource=tsc"
+    "nvidia.NVreg_EnableGpuFirmware=0"
+    "quiet"
+    "loglevel=3"
+    "rd.systemd.show_status=false"
+    "systemd.show_status=false"
+    "rd.udev.log_level=3"
+    "intel_pstate=active"
+    "scsi_mod.use_blk_mq=1"
+    "rcu_nocbs=0-11"
   ];
 
   # Kernel Modules
-  boot.kernelModules = [ "thinkpad_acpi" ];
+  boot.kernelModules = [ "thinkpad_acpi" "ip_tables" "iptable_filter" "iptable_nat" "iptable_mangle" ];
 
   networking.hostName = "terminalindex"; # Define your hostname.
+  networking.nameservers = [ "1.1.1.1" "1.0.0.1" "178.219.129.146" "185.11.108.6" ];
+  networking.enableIPv6 = false;
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
 
   # Configure network proxy if necessary
@@ -75,7 +86,7 @@
   # Enable NVIDIA GPU
   hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.beta;
   hardware.nvidia.modesetting.enable = true;
-  hardware.nvidia.open = true;
+  hardware.nvidia.open = false;
   hardware.nvidia.nvidiaSettings = true;
   hardware.nvidia.powerManagement.enable = true;
   hardware.nvidia.prime = {
@@ -88,7 +99,7 @@
     enable = true;
     enable32Bit = true;
   };
-
+  
   # Configure keymap in X11
   services.xserver.xkb = {
     layout = "pl";
@@ -164,6 +175,9 @@
     "vm.watermark_boost_factor" = 0;
     "vm.watermark_scale_factor" = 125;
     "vm.page-cluster" = 0;
+    "net.ipv4.ip_forward" = 1;
+    "net.ipv4.conf.all.forwarding" = 1;
+    "net.ipv6.conf.all.forwarding" = 1;
   };
 
   boot.tmp.useTmpfs = true;
@@ -174,6 +188,11 @@
 
   # Enable CUPS (Printing support)
   services.printing.enable = true;
+  services.printing.drivers = [ pkgs.brlaser ];
+
+  # Enable avahi-daemon
+  services.avahi.enable = true;
+  services.avahi.nssmdns4 = true;
 
   # Enable Samba
   services.samba.enable = true;
@@ -232,12 +251,19 @@
   # Enable usbmuxd
   services.usbmuxd.enable = true;
 
+  # Enable firmware management (fwupd)
+  services.fwupd.enable = true;
+
+  # Enable ThinkPad P53 Fingerprint reader
+  services.fprintd.enable = true;
+
   # Enable libvirtd (Virtual Machines' Daemon)
   virtualisation.libvirtd.enable = true;
 
   # Enable Waydroid (Android Container)
   virtualisation.waydroid.enable = true;
-
+  networking.nftables.enable = false;
+ 
   # Enable OpenSSH Daemon
   services.openssh.enable = true;
 
@@ -247,6 +273,12 @@
     binfmt = true;
   };
   programs.nix-ld.enable = true;
+
+  # Enable neovim
+  programs.neovim = {
+    enable = true;
+    defaultEditor = true;
+  };
 
   # Enable pipewire audio session
   services.pulseaudio.enable = false;
@@ -258,12 +290,33 @@
     pulse.enable = true;
   };
 
+  # Enable saucy zsh terminal!
+  programs.zsh = {
+    enable = true;
+    autosuggestions.enable = true;
+    syntaxHighlighting.enable = true;
+  
+    shellAliases = {
+      ls = "eza --icons --group-directories-first";
+      ll = "eza -la --icons --group-directories-first";
+      cat = "bat";
+    };
+  };
+
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users.ti = {
     isNormalUser = true;
     description = "karol szołtysek";
-    extraGroups = [ "networkmanager" "wheel" "plugdev" "dialout" ];
+    extraGroups = [ "networkmanager" "wheel" "plugdev" "dialout" "lp" "scanner" ];
+    shell = pkgs.zsh;
     packages = with pkgs; [
+      vlc
+      gemini-cli
+      kdePackages.kdenlive
+      freecad
+      bottles
+      bleachbit
+      usbutils
       google-chrome
       git
       telegram-desktop
@@ -322,6 +375,7 @@
       qt6Packages.qt6ct
       wlr-randr
       waybar
+      vscode
     ];
   };
 
@@ -331,6 +385,16 @@
   # List packages installed in system profile.To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
+    gnumake
+    gcc
+    unzip
+    nanorc
+    starship
+    zsh    
+    cudatoolkit
+    ffmpeg-full
+    gst_all_1.gst-plugins-ugly
+    gst_all_1.gst-plugins-bad
     xdg-user-dirs
     nano
     sbctl
