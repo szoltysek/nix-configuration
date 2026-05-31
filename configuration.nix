@@ -36,12 +36,7 @@
     "nvidia.NVreg_EnableGpuFirmware=0"
     "quiet"
     "loglevel=3"
-    "rd.systemd.show_status=false"
-    "systemd.show_status=false"
-    "rd.udev.log_level=3"
     "intel_pstate=active"
-    "scsi_mod.use_blk_mq=1"
-    "rcu_nocbs=0-11"
   ];
 
   # Kernel Modules
@@ -84,7 +79,7 @@
   services.xserver.videoDrivers = [ "nvidia" ];
 
   # Enable NVIDIA GPU
-  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.beta;
+  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.production;
   hardware.nvidia.modesetting.enable = true;
   hardware.nvidia.open = false;
   hardware.nvidia.nvidiaSettings = true;
@@ -150,6 +145,7 @@
     options = [ "rw" "nofail" "noatime" ];
   };
 
+
   # Enable ly login manager
   services.displayManager.ly.enable = true;
 
@@ -196,6 +192,29 @@
 
   # Enable Samba
   services.samba.enable = true;
+
+  # Enable Mullvad VPN + systemd-resolved
+  services.resolved = {
+    enable = true;
+    dnssec = "true";
+    domains = [ "~." ];
+    fallbackDns = [ "1.1.1.1#one.one.one.one" "1.0.0.1#one.one.one.one" ];
+    dnsovertls = "true";
+  };
+
+  services.mullvad-vpn.enable = true;
+  services.mullvad-vpn.package = pkgs.mullvad-vpn;
+
+    ## Bypass Mullvad for Tailscale
+  networking.nftables.ruleset = ''
+    table inet excludeTraffic {
+      chain excludeOutgoing {
+        type route hook output priority 0; policy accept;
+        ip daddr 100.64.0.0/10 ct mark set 0x00000f41 meta mark set 0x6d6f6c65;
+        ip6 daddr fd7a:115c:a1e0::/48 ct mark set 0x00000f41 meta mark set 0x6d6f6c65;
+      }
+    }
+  '';
 
   # Enable Gamemode
   programs.gamemode = {
@@ -303,6 +322,18 @@
     };
   };
 
+
+  # Fixes some goofy ass electron issue
+  nixpkgs.config.permittedInsecurePackages = [
+    "electron-39.8.10"
+  ];
+
+  # Yazi configuration
+  programs.yazi = {
+    enable = true;
+  };
+  
+
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users.ti = {
     isNormalUser = true;
@@ -376,6 +407,7 @@
       wlr-randr
       waybar
       vscode
+      discord
     ];
   };
 
@@ -385,6 +417,17 @@
   # List packages installed in system profile.To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
+    ueberzugpp
+    waypaper
+    imv
+    zathura
+    swayimg
+    aichat
+    pulsemixer
+    rmpc
+    mpd
+    qutebrowser
+    mullvad-vpn
     gnumake
     gcc
     unzip
