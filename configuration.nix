@@ -249,23 +249,50 @@
     ];
   };
 
-  # Enable Intel Undervolt
-  services.undervolt = {
+  # Enable Intel Undervolt via throttled
+  services.throttled = {
     enable = true;
-    coreOffset = -100;
-    uncoreOffset = -80;
-    gpuOffset = -50;
-    analogioOffset = -20;
+    extraConfig = ''
+      [GENERAL]
+      Enabled: True
+      Sysfs_Power_Path: /sys/class/power_supply/AC*/online
+      Autoreload: True
 
-    p1 = {
-      limit = 45;
-      window = 28;
-    };
-    p2 = {
-      limit = 65;
-      window = 2;
-    };
-  }; 
+      [BATTERY]
+      Update_Rate_s: 30
+      PL1_Tdp_W: 45
+      PL1_Duration_s: 2800
+      PL2_Tdp_W: 70
+      PL2_Duration_S: 6
+      Trip_Temp_C: 100
+      cTDP: 0
+      Disable_BDPROCHOT: False
+
+      [AC]
+      Update_Rate_s: 5
+      PL1_Tdp_W: 90
+      PL1_Duration_s: 28000
+      PL2_Tdp_W: 130
+      PL2_Duration_S: 2800
+      Trip_Temp_C: 100
+      cTDP: 0
+      Disable_BDPROCHOT: True
+
+      [UNDERVOLT.BATTERY]
+      CORE: -150
+      GPU: -100
+      CACHE: -150
+      UNCORE: -10
+      ANALOGIO: 0
+
+      [UNDERVOLT.AC]
+      CORE: -100
+      GPU: -90
+      CACHE: -100
+      UNCORE: -10
+      ANALOGIO: 0
+    '';
+  };
 
   # Enable usbmuxd
   services.usbmuxd.enable = true;
@@ -285,6 +312,21 @@
  
   # Enable OpenSSH Daemon
   services.openssh.enable = true;
+
+  # Enable FIDO
+  services.udev.packages = [
+    (pkgs.writeTextFile {
+      name = "pico-fido-udev";
+      text = ''
+        # Pico FIDO Official VID/PID (Jan 2026 onwards)
+        KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="2e8a", ATTRS{idProduct}=="10fe", TAG+="uaccess"
+        
+        # Pico FIDO Legacy/Dummy VID/PID
+        KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="feff", ATTRS{idProduct}=="fcfd", TAG+="uaccess"
+      '';
+      destination = "/etc/udev/rules.d/70-pico-fido.rules";
+    })
+  ];
 
   # Enable AppImage support
   programs.appimage = {
@@ -333,12 +375,20 @@
     enable = true;
   };
   
+  # Disable modemmanager
+  systemd.services = {
+    ModemManager = {
+      enable = false;
+      restartIfChanged = false;
+    };
+  };
+
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users.ti = {
     isNormalUser = true;
     description = "karol szołtysek";
-    extraGroups = [ "networkmanager" "wheel" "plugdev" "dialout" "lp" "scanner" ];
+    extraGroups = [ "networkmanager" "wheel" "plugdev" "dialout" "lp" "scanner" "video" ];
     shell = pkgs.zsh;
     packages = with pkgs; [
       vlc
@@ -382,7 +432,6 @@
       wireshark
       nmap
       sqlmap
-      bambu-studio
       brlaser
       deluge
       aria2
